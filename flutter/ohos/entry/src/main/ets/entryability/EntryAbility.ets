@@ -22,7 +22,8 @@ class MainChannel implements MethodCallHandler {
         result.success(this.context.filesDir);
         break;
       case 'get_value': {
-        const key = call.argument<string>('name') ?? '';
+        const args = call.args as Record<string, string>;
+        const key: string = (args && args['name']) ? args['name'] : '';
         result.success(this.getValue(key));
         break;
       }
