@@ -1,6 +1,7 @@
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 use crate::clipboard::{update_clipboard, ClipboardSide};
-#[cfg(not(any(target_os = "ios")))]
+// OHOS v0.1: server 模块被 cfg-out，相关符号都不可见。client/io_loop 主控端不使用。
+#[cfg(not(any(target_os = "ios", target_env = "ohos")))]
 use crate::{audio_service, clipboard::CLIPBOARD_INTERVAL, ConnInner, CLIENT_SERVER};
 use crate::{
     client::{
@@ -343,7 +344,7 @@ impl<T: InvokeUiSession> Remote<T> {
             .unwrap()
             .set_disconnected(round);
 
-        #[cfg(not(target_os = "ios"))]
+        #[cfg(not(any(target_os = "ios", target_env = "ohos")))]
         if self.handler.is_default() && _set_disconnected_ok {
             Client::try_stop_clipboard();
         }
@@ -449,8 +450,8 @@ impl<T: InvokeUiSession> Remote<T> {
         {
             return None;
         }
-        // iOS does not have this server.
-        #[cfg(not(any(target_os = "ios")))]
+        // iOS / OHOS v0.1 do not have this audio_service server.
+        #[cfg(not(any(target_os = "ios", target_env = "ohos")))]
         {
             // NOTE:
             // The client server and --server both use the same sound input device.
@@ -515,7 +516,7 @@ impl<T: InvokeUiSession> Remote<T> {
             });
             return Some(tx);
         }
-        #[cfg(target_os = "ios")]
+        #[cfg(any(target_os = "ios", target_env = "ohos"))]
         {
             None
         }
@@ -1353,10 +1354,10 @@ impl<T: InvokeUiSession> Remote<T> {
                         self.check_clipboard_file_context();
                         if self.handler.is_default() {
                             #[cfg(feature = "flutter")]
-                            #[cfg(not(target_os = "ios"))]
+                            #[cfg(not(any(target_os = "ios", target_env = "ohos")))]
                             let rx = Client::try_start_clipboard(None);
                             #[cfg(not(feature = "flutter"))]
-                            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                             let rx = Client::try_start_clipboard(Some(
                                 crate::client::ClientClipboardContext {
                                     cfg: self.handler.get_permission_config(),
@@ -1368,12 +1369,12 @@ impl<T: InvokeUiSession> Remote<T> {
                                 },
                             ));
                             // To make sure current text clipboard data is updated.
-                            #[cfg(not(target_os = "ios"))]
+                            #[cfg(not(any(target_os = "ios", target_env = "ohos")))]
                             if let Some(mut rx) = rx {
                                 timeout(CLIPBOARD_INTERVAL, rx.recv()).await.ok();
                             }
 
-                            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                             if self.handler.lc.read().unwrap().sync_init_clipboard.v {
                                 if let Some(msg_out) = crate::clipboard::get_current_clipboard_msg(
                                     &peer_version,
@@ -1401,7 +1402,7 @@ impl<T: InvokeUiSession> Remote<T> {
 
                             // on connection established client
                             #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-                            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                             crate::plugin::handle_listen_event(
                                 crate::plugin::EVENT_ON_CONN_CLIENT.to_owned(),
                                 self.handler.get_id(),
@@ -1428,7 +1429,7 @@ impl<T: InvokeUiSession> Remote<T> {
                 Some(message::Union::Clipboard(cb)) => {
                     let lc = self.handler.lc.read().unwrap();
                     if !lc.disable_clipboard.v && !lc.view_only.v {
-                        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                         update_clipboard(vec![cb], ClipboardSide::Client);
                         #[cfg(target_os = "ios")]
                         {
@@ -1448,7 +1449,7 @@ impl<T: InvokeUiSession> Remote<T> {
                 Some(message::Union::MultiClipboards(_mcb)) => {
                     let lc = self.handler.lc.read().unwrap();
                     if !lc.disable_clipboard.v && !lc.view_only.v {
-                        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                         update_clipboard(_mcb.clipboards, ClipboardSide::Client);
                         #[cfg(target_os = "ios")]
                         {
@@ -1926,7 +1927,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
                     }
                     #[cfg(feature = "flutter")]
-                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                     Some(misc::Union::SwitchBack(_)) => {
                         let allow_switch_back = self
                             .handler
@@ -1944,7 +1945,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
                     }
                     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                     Some(misc::Union::PluginRequest(p)) => {
                         allow_err!(crate::plugin::handle_server_event(
                             &p.id,
@@ -1954,7 +1955,7 @@ impl<T: InvokeUiSession> Remote<T> {
                         // to-do: show message box on UI when error occurs?
                     }
                     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-                    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                     Some(misc::Union::PluginFailure(p)) => {
                         let name = if p.name.is_empty() {
                             "plugin".to_string()

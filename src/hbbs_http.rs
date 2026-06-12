@@ -6,6 +6,8 @@ use serde_json::{Map, Value};
 pub mod account;
 pub mod downloader;
 mod http_client;
+// OHOS v0.1: 不上传录像（scrap::record cfg-out）
+#[cfg(not(target_env = "ohos"))]
 pub mod record_upload;
 pub mod sync;
 pub use http_client::{

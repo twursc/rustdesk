@@ -228,10 +228,12 @@ fn ffmpeg() {
 
 fn main() {
     // in this crate, these are also valid configurations
-    println!("cargo:rustc-check-cfg=cfg(dxgi,quartz,x11)");
+    println!("cargo:rustc-check-cfg=cfg(dxgi,quartz,x11,ohos)");
 
     // there is problem with cfg(target_os) in build.rs, so use our workaround
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_env = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+    let is_ohos = target_env == "ohos";
 
     // note: all link symbol names in x86 (32-bit) are prefixed wth "_".
     // run "rustup show" to show current default toolchain, if it is stable-x86-pc-windows-msvc,
@@ -243,6 +245,41 @@ fn main() {
     }
     env::remove_var("CARGO_CFG_TARGET_FEATURE");
     env::set_var("CARGO_CFG_TARGET_FEATURE", "crt-static");
+
+    if is_ohos {
+        // OHOS: 我们用 OHOS NDK 自己交编了 libvpx/libaom/libyuv（见 prebuilt/ohos-arm64）。
+        // scrap build.rs 期望 vcpkg 风格的 "<arch>-<os>" 子目录，但我们的布局更直接。
+        // 通过环境变量 OHOS_PREBUILT_DIR 显式注入，绕开 vcpkg.find_package 的复杂兜底。
+        let prebuilt = env::var("OHOS_PREBUILT_DIR").unwrap_or_else(|_| {
+            // 默认指向仓库内 prebuilt/ohos-arm64
+            let manifest_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+            let p = Path::new(&manifest_dir).join("../../prebuilt/ohos-arm64");
+            p.canonicalize().expect("OHOS_PREBUILT_DIR not set and default prebuilt dir missing").to_string_lossy().into_owned()
+        });
+        let include_path = PathBuf::from(&prebuilt).join("include");
+        let lib_path = PathBuf::from(&prebuilt).join("lib");
+        println!("cargo:rustc-link-search={}", lib_path.display());
+        for lib in &["vpx", "yuv", "aom"] {
+            println!("cargo:rustc-link-lib=static={lib}");
+        }
+        // 生成 bindings（用 OHOS NDK clang sysroot 解析头文件）
+        let src_dir = env::var_os("CARGO_MANIFEST_DIR").unwrap();
+        let src_dir = Path::new(&src_dir);
+        let out_dir = env::var_os("OUT_DIR").unwrap();
+        let out_dir = Path::new(&out_dir);
+        for (header, gen, regex) in &[
+            ("vpx_ffi.h", "vpx_ffi.rs", "^[vV].*"),
+            ("aom_ffi.h", "aom_ffi.rs", "^(aom|AOM|OBU|AV1).*"),
+            ("yuv_ffi.h", "yuv_ffi.rs", ".*"),
+        ] {
+            let h = src_dir.join("src").join("bindings").join(header);
+            let rs = out_dir.join(gen);
+            let exact = src_dir.join("generated").join(gen);
+            generate_bindings(&h, &[include_path.clone()], &rs, &exact, regex);
+        }
+        println!("cargo:rustc-cfg=ohos");
+        return;
+    }
 
     find_package("libyuv");
     gen_vcpkg_package("libvpx", "vpx_ffi.h", "vpx_ffi.rs", "^[vV].*");

@@ -50,6 +50,7 @@ import 'package:flutter_hbb/utils/http_service.dart' as http;
 final globalKey = GlobalKey<NavigatorState>();
 final navigationBarKey = GlobalKey();
 
+final isOhos = isOhos_;
 final isAndroid = isAndroid_;
 final isIOS = isIOS_;
 final isWindows = isWindows_;
@@ -61,7 +62,8 @@ final isWebDesktop = isWebDesktop_;
 final isWebOnWindows = isWebOnWindows_;
 final isWebOnLinux = isWebOnLinux_;
 final isWebOnMacOs = isWebOnMacOS_;
-var isMobile = isAndroid || isIOS;
+// OHOS 视作 mobile（手机/平板控制端）
+var isMobile = isAndroid || isIOS || isOhos;
 var version = '';
 int androidVersion = 0;
 

@@ -4,8 +4,10 @@ use std::{
     time::Duration,
 };
 
-#[cfg(not(any(target_os = "ios")))]
+#[cfg(not(any(target_os = "ios", target_env = "ohos")))]
 use crate::{ui_interface::get_builtin_option, Connection};
+#[cfg(target_env = "ohos")]
+use crate::ui_interface::get_builtin_option;
 use hbb_common::{
     config::{self, keys, Config, LocalConfig},
     log,
@@ -103,7 +105,10 @@ async fn start_hbbs_sync_async() {
                 if config::option2bool("stop-service", &Config::get_option("stop-service")) {
                     continue;
                 }
+                #[cfg(not(target_env = "ohos"))]
                 let conns = Connection::alive_conns();
+                #[cfg(target_env = "ohos")]
+                let conns: Vec<i32> = Vec::new();
                 if info_uploaded.uploaded && (url != info_uploaded.url || id != info_uploaded.id) {
                     info_uploaded.uploaded = false;
                     *PRO.lock().unwrap() = false;

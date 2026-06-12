@@ -25,6 +25,7 @@ use hbb_common::{
     },
     whoami, Stream,
 };
+#[cfg(not(target_env = "ohos"))]
 use rdev::{Event, EventType::*, KeyCode};
 #[cfg(all(feature = "vram", feature = "flutter"))]
 use std::ffi::c_void;
@@ -46,7 +47,7 @@ use crate::client::{
     input_os_password, send_mouse, send_pointer_device_event, FileManager, Key, LoginConfigHandler,
     QualityStatus, KEY_MAP,
 };
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 use crate::common::GrabState;
 use crate::keyboard;
 use crate::{client::Data, client::Interface};
@@ -169,7 +170,7 @@ impl ChangeDisplayRecord {
     }
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 impl SessionPermissionConfig {
     pub fn is_text_clipboard_required(&self) -> bool {
         *self.server_clipboard_enabled.read().unwrap()
@@ -189,7 +190,7 @@ impl SessionPermissionConfig {
 }
 
 impl<T: InvokeUiSession> Session<T> {
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn get_permission_config(&self) -> SessionPermissionConfig {
         SessionPermissionConfig {
             lc: self.lc.clone(),
@@ -228,7 +229,7 @@ impl<T: InvokeUiSession> Session<T> {
         conn_type == ConnType::PORT_FORWARD || conn_type == ConnType::RDP
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn is_rdp(&self) -> bool {
         self.lc.read().unwrap().conn_type.eq(&ConnType::RDP)
     }
@@ -566,7 +567,7 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn send_plugin_request(&self, request: PluginRequest) {
         let mut misc = Misc::new();
         misc.set_plugin_request(request);
@@ -597,7 +598,7 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     #[cfg(not(feature = "flutter"))]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn is_xfce(&self) -> bool {
         crate::platform::is_xfce()
     }
@@ -723,47 +724,50 @@ impl<T: InvokeUiSession> Session<T> {
                 })
                 .collect();
 
-            let code = msg.chr();
-            if code != 0 {
-                let mut peer = self.peer_platform().to_lowercase();
-                peer.retain(|c| !c.is_whitespace());
+            #[cfg(not(target_env = "ohos"))]
+            {
+                let code = msg.chr();
+                if code != 0 {
+                    let mut peer = self.peer_platform().to_lowercase();
+                    peer.retain(|c| !c.is_whitespace());
 
-                let key = match peer.as_str() {
-                    "windows" => {
-                        let key = rdev::win_key_from_scancode(code);
-                        let key = match key {
-                            rdev::Key::ControlLeft => rdev::Key::MetaLeft,
-                            rdev::Key::MetaLeft => rdev::Key::ControlLeft,
-                            rdev::Key::ControlRight => rdev::Key::MetaLeft,
-                            rdev::Key::MetaRight => rdev::Key::ControlLeft,
-                            _ => key,
-                        };
-                        rdev::win_scancode_from_key(key).unwrap_or_default()
-                    }
-                    "macos" => {
-                        let key = rdev::macos_key_from_code(code as _);
-                        let key = match key {
-                            rdev::Key::ControlLeft => rdev::Key::MetaLeft,
-                            rdev::Key::MetaLeft => rdev::Key::ControlLeft,
-                            rdev::Key::ControlRight => rdev::Key::MetaLeft,
-                            rdev::Key::MetaRight => rdev::Key::ControlLeft,
-                            _ => key,
-                        };
-                        rdev::macos_keycode_from_key(key).unwrap_or_default() as _
-                    }
-                    _ => {
-                        let key = rdev::linux_key_from_code(code);
-                        let key = match key {
-                            rdev::Key::ControlLeft => rdev::Key::MetaLeft,
-                            rdev::Key::MetaLeft => rdev::Key::ControlLeft,
-                            rdev::Key::ControlRight => rdev::Key::MetaLeft,
-                            rdev::Key::MetaRight => rdev::Key::ControlLeft,
-                            _ => key,
-                        };
-                        rdev::linux_keycode_from_key(key).unwrap_or_default()
-                    }
-                };
-                msg.set_chr(key);
+                    let key = match peer.as_str() {
+                        "windows" => {
+                            let key = rdev::win_key_from_scancode(code);
+                            let key = match key {
+                                rdev::Key::ControlLeft => rdev::Key::MetaLeft,
+                                rdev::Key::MetaLeft => rdev::Key::ControlLeft,
+                                rdev::Key::ControlRight => rdev::Key::MetaLeft,
+                                rdev::Key::MetaRight => rdev::Key::ControlLeft,
+                                _ => key,
+                            };
+                            rdev::win_scancode_from_key(key).unwrap_or_default()
+                        }
+                        "macos" => {
+                            let key = rdev::macos_key_from_code(code as _);
+                            let key = match key {
+                                rdev::Key::ControlLeft => rdev::Key::MetaLeft,
+                                rdev::Key::MetaLeft => rdev::Key::ControlLeft,
+                                rdev::Key::ControlRight => rdev::Key::MetaLeft,
+                                rdev::Key::MetaRight => rdev::Key::ControlLeft,
+                                _ => key,
+                            };
+                            rdev::macos_keycode_from_key(key).unwrap_or_default() as _
+                        }
+                        _ => {
+                            let key = rdev::linux_key_from_code(code);
+                            let key = match key {
+                                rdev::Key::ControlLeft => rdev::Key::MetaLeft,
+                                rdev::Key::MetaLeft => rdev::Key::ControlLeft,
+                                rdev::Key::ControlRight => rdev::Key::MetaLeft,
+                                rdev::Key::MetaRight => rdev::Key::ControlLeft,
+                                _ => key,
+                            };
+                            rdev::linux_keycode_from_key(key).unwrap_or_default()
+                        }
+                    };
+                    msg.set_chr(key);
+                }
             }
         }
     }
@@ -874,13 +878,13 @@ impl<T: InvokeUiSession> Session<T> {
         }
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn enter(&self, keyboard_mode: String) {
         let session_id = self.lc.read().unwrap().session_id as u128;
         keyboard::client::change_grab_status(GrabState::Run, &keyboard_mode, session_id);
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn leave(&self, keyboard_mode: String) {
         let session_id = self.lc.read().unwrap().session_id as u128;
         keyboard::client::change_grab_status(GrabState::Wait, &keyboard_mode, session_id);
@@ -951,7 +955,19 @@ impl<T: InvokeUiSession> Session<T> {
         }
     }
 
-    #[cfg(not(any(target_os = "ios")))]
+    #[cfg(all(not(any(target_os = "ios")), target_env = "ohos"))]
+    fn _handle_raw_key_non_flutter_simulation(
+        &self,
+        _keyboard_mode: &str,
+        _platform_code: i32,
+        _position_code: i32,
+        _lock_modes: i32,
+        _down_or_up: bool,
+    ) {
+        // OHOS v0.1：键事件统一走 ArkTS RawKeyEvent → flutter_key 路径
+    }
+
+    #[cfg(all(not(any(target_os = "ios")), not(target_env = "ohos")))]
     fn _handle_raw_key_non_flutter_simulation(
         &self,
         keyboard_mode: &str,
@@ -1035,6 +1051,19 @@ impl<T: InvokeUiSession> Session<T> {
         self.send_key_event(&key_event);
     }
 
+    #[cfg(target_env = "ohos")]
+    fn _handle_key_non_flutter_simulation(
+        &self,
+        _keyboard_mode: &str,
+        _character: &str,
+        _usb_hid: i32,
+        _lock_modes: i32,
+        _down_or_up: bool,
+    ) {
+        // OHOS v0.1：键盘走 flutter_key 路径或 ArkTS RawKeyEvent，不在 rust 侧合成
+    }
+
+    #[cfg(not(target_env = "ohos"))]
     fn _handle_key_non_flutter_simulation(
         &self,
         keyboard_mode: &str,
@@ -1045,9 +1074,9 @@ impl<T: InvokeUiSession> Session<T> {
     ) {
         let key = rdev::usb_hid_key_from_code(usb_hid as _);
 
-        #[cfg(any(target_os = "android", target_os = "ios"))]
+        #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
         let position_code: KeyCode = 0;
-        #[cfg(any(target_os = "android", target_os = "ios"))]
+        #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
         let platform_code: KeyCode = 0;
 
         #[cfg(target_os = "windows")]
@@ -1068,7 +1097,7 @@ impl<T: InvokeUiSession> Session<T> {
         // We need to set the platform code (keysym) if is AltGr.
         // https://github.com/rustdesk/rustdesk/blob/07cf1b4db5ef2f925efd3b16b87c33ce03c94809/src/keyboard.rs#L1029
         // https://github.com/flutter/flutter/issues/153811
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
         let platform_code: u32 = position_code as _;
 
         let event_type = if down_or_up {
@@ -1091,9 +1120,9 @@ impl<T: InvokeUiSession> Session<T> {
             platform_code,
             position_code: position_code as _,
             event_type,
-            #[cfg(any(target_os = "android", target_os = "ios"))]
+            #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
             usb_hid: usb_hid as _,
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
             usb_hid: 0,
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             extra_data: 0,
@@ -1200,14 +1229,14 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     #[inline]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     fn is_scroll_reverse_mode(&self) -> bool {
         self.lc.read().unwrap().reverse_mouse_wheel.eq("Y")
     }
 
     #[inline]
     fn get_scroll_xy(&self, xy: (i32, i32)) -> (i32, i32) {
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         if self.is_scroll_reverse_mode() {
             return (-xy.0, -xy.1);
         }
@@ -1241,7 +1270,7 @@ impl<T: InvokeUiSession> Session<T> {
             (x, y)
         };
 
-        // #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        // #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         let (alt, ctrl, shift, command) =
             keyboard::client::get_modifiers_state(alt, ctrl, shift, command);
         let is_left = (mask & (MOUSE_BUTTON_LEFT << 3)) > 0;
@@ -1470,11 +1499,11 @@ impl<T: InvokeUiSession> Session<T> {
         self.send(Data::ElevateWithLogon(username, password));
     }
 
-    #[cfg(any(target_os = "android", target_os = "ios", not(feature = "flutter")))]
+    #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos", not(feature = "flutter")))]
     pub fn switch_sides(&self) {}
 
     #[cfg(feature = "flutter")]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     #[tokio::main(flavor = "current_thread")]
     pub async fn switch_sides(&self) {
         match crate::ipc::connect(1000, "").await {
@@ -1582,7 +1611,7 @@ impl<T: InvokeUiSession> Session<T> {
 
     #[inline]
     pub fn request_voice_call(&self) {
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
         std::thread::spawn(crate::ipc::start_pa);
         self.send(Data::NewVoiceCall);
     }
@@ -1711,7 +1740,7 @@ pub trait InvokeUiSession: Send + Sync + Clone + 'static + Sized + Default {
     fn adapt_size(&self);
     fn on_rgba(&self, display: usize, rgba: &mut scrap::ImageRgb);
     fn msgbox(&self, msgtype: &str, title: &str, text: &str, link: &str, retry: bool);
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
     fn clipboard(&self, content: String);
     fn cancel_msgbox(&self, tag: &str);
     fn switch_back(&self, id: &str);
@@ -1930,14 +1959,14 @@ impl<T: InvokeUiSession> Session<T> {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn io_loop<T: InvokeUiSession>(handler: Session<T>, round: u32) {
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
     let (sender, receiver) = mpsc::unbounded_channel::<Data>();
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     let (sender, mut receiver) = mpsc::unbounded_channel::<Data>();
     *handler.sender.write().unwrap() = Some(sender.clone());
     let token = LocalConfig::get_option("access_token");
     let key = crate::get_key(false).await;
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     if handler.is_port_forward() {
         if handler.is_rdp() {
             let port = handler
@@ -2028,7 +2057,7 @@ pub async fn io_loop<T: InvokeUiSession>(handler: Session<T>, round: u32) {
     let _ = remote.sync_jobs_status_to_local().await;
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 async fn start_one_port_forward<T: InvokeUiSession>(
     handler: Session<T>,
     port: i32,

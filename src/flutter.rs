@@ -4,7 +4,7 @@ use crate::{
     ui_session_interface::{io_loop, InvokeUiSession, Session},
 };
 use flutter_rust_bridge::StreamSink;
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 use hbb_common::dlopen::{
     symbor::{Library, Symbol},
     Error as LibError,
@@ -31,9 +31,9 @@ use std::{
 /// tag "main" for [Desktop Main Page] and [Mobile (Client and Server)] (the mobile don't need multiple windows, only one global event stream is needed)
 /// tag "cm" only for [Desktop CM Page]
 pub(crate) const APP_TYPE_MAIN: &str = "main";
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub(crate) const APP_TYPE_CM: &str = "cm";
-#[cfg(any(target_os = "android", target_os = "ios"))]
+#[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
 pub(crate) const APP_TYPE_CM: &str = "main";
 
 // Do not remove the following constants.
@@ -54,7 +54,7 @@ lazy_static::lazy_static! {
     pub static ref TEXTURE_RGBA_RENDERER_PLUGIN: Result<Library, LibError> = load_plugin_in_app_path("texture_rgba_renderer_plugin.dll");
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 lazy_static::lazy_static! {
     pub static ref TEXTURE_RGBA_RENDERER_PLUGIN: Result<Library, LibError> = Library::open("libtexture_rgba_renderer_plugin.so");
 }
@@ -104,7 +104,7 @@ fn load_plugin_in_app_path(dll_name: &str) -> Result<Library, LibError> {
 #[cfg(not(windows))]
 #[no_mangle]
 pub extern "C" fn rustdesk_core_main() -> bool {
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     if crate::core_main::core_main().is_some() {
         return true;
     } else {
@@ -125,14 +125,14 @@ pub extern "C" fn handle_applicationShouldOpenUntitledFile() {
 #[no_mangle]
 pub extern "C" fn rustdesk_core_main_args(args_len: *mut c_int) -> *mut *mut c_char {
     unsafe { std::ptr::write(args_len, 0) };
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     {
         if let Some(args) = crate::core_main::core_main() {
             return rust_args_to_c_args(args, args_len);
         }
         return std::ptr::null_mut() as _;
     }
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
     return std::ptr::null_mut() as _;
 }
 
@@ -219,7 +219,7 @@ pub struct FlutterHandler {
     session_handlers: Arc<RwLock<HashMap<SessionID, SessionHandler>>>,
     display_rgbas: Arc<RwLock<HashMap<usize, RgbaData>>>,
     peer_info: Arc<RwLock<PeerInfo>>,
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     hooks: Arc<RwLock<HashMap<String, SessionHook>>>,
     use_texture_render: Arc<AtomicBool>,
 }
@@ -230,7 +230,7 @@ impl Default for FlutterHandler {
             session_handlers: Default::default(),
             display_rgbas: Default::default(),
             peer_info: Default::default(),
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
             hooks: Default::default(),
             use_texture_render: Arc::new(
                 AtomicBool::new(crate::ui_interface::use_texture_render()),
@@ -279,7 +279,7 @@ struct DisplaySessionInfo {
 struct VideoRenderer {
     is_support_multi_ui_session: bool,
     map_display_sessions: Arc<RwLock<HashMap<usize, DisplaySessionInfo>>>,
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     on_rgba_func: Option<Symbol<'static, FlutterRgbaRendererPluginOnRgba>>,
     #[cfg(feature = "vram")]
     on_texture_func: Option<Symbol<'static, FlutterGpuTextureRendererPluginCApiSetTexture>>,
@@ -287,7 +287,7 @@ struct VideoRenderer {
 
 impl Default for VideoRenderer {
     fn default() -> Self {
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         let on_rgba_func = match &*TEXTURE_RGBA_RENDERER_PLUGIN {
             Ok(lib) => {
                 let find_sym_res = unsafe {
@@ -331,7 +331,7 @@ impl Default for VideoRenderer {
         Self {
             map_display_sessions: Default::default(),
             is_support_multi_ui_session: false,
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
             on_rgba_func,
             #[cfg(feature = "vram")]
             on_texture_func,
@@ -443,7 +443,7 @@ impl VideoRenderer {
         }
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn on_rgba(&self, display: usize, rgba: &scrap::ImageRgb) -> bool {
         let mut write_lock = self.map_display_sessions.write().unwrap();
         let opt_info = if !self.is_support_multi_ui_session {
@@ -631,7 +631,7 @@ impl FlutterHandler {
     }
 
     #[cfg(feature = "plugin_framework")]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub(crate) fn add_session_hook(&self, key: String, hook: SessionHook) -> bool {
         let mut hooks = self.hooks.write().unwrap();
         if hooks.contains_key(&key) {
@@ -643,7 +643,7 @@ impl FlutterHandler {
     }
 
     #[cfg(feature = "plugin_framework")]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub(crate) fn remove_session_hook(&self, key: &String) -> bool {
         let mut hooks = self.hooks.write().unwrap();
         if !hooks.contains_key(key) {
@@ -860,7 +860,7 @@ impl InvokeUiSession for FlutterHandler {
     fn adapt_size(&self) {}
 
     #[inline]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     fn on_rgba(&self, display: usize, rgba: &mut scrap::ImageRgb) {
         let use_texture_render = self.use_texture_render.load(Ordering::Relaxed);
         self.on_rgba_flutter_texture_render(use_texture_render, display, rgba);
@@ -870,7 +870,7 @@ impl InvokeUiSession for FlutterHandler {
     }
 
     #[inline]
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
     fn on_rgba(&self, display: usize, rgba: &mut scrap::ImageRgb) {
         self.on_rgba_soft_render(display, rgba);
     }
@@ -903,9 +903,9 @@ impl InvokeUiSession for FlutterHandler {
         let features = serde_json::ser::to_string(&features).unwrap_or("".to_owned());
         let resolutions = serialize_resolutions(&pi.resolutions.resolutions);
         *self.peer_info.write().unwrap() = pi.clone();
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         let is_support_multi_ui_session = crate::common::is_support_multi_ui_session(&pi.version);
-        #[cfg(any(target_os = "android", target_os = "ios"))]
+        #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
         let is_support_multi_ui_session = false;
         self.session_handlers
             .write()
@@ -1051,7 +1051,7 @@ impl InvokeUiSession for FlutterHandler {
         );
     }
 
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
     fn clipboard(&self, content: String) {
         self.push_event("clipboard", &[("content", &content)], &[]);
     }
@@ -1189,7 +1189,7 @@ impl FlutterHandler {
     #[inline]
     fn on_rgba_soft_render(&self, display: usize, rgba: &mut scrap::ImageRgb) {
         // Give a chance for plugins or etc to hook a rgba data.
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         for (key, hook) in self.hooks.read().unwrap().iter() {
             match hook {
                 SessionHook::OnSessionRgba(cb) => {
@@ -1249,7 +1249,7 @@ impl FlutterHandler {
     }
 
     #[inline]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     fn on_rgba_flutter_texture_render(
         &self,
         use_texture_render: bool,
@@ -1451,7 +1451,7 @@ pub fn update_file_clipboard_required() {
     Client::set_is_file_clipboard_required(is_required);
 }
 
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_env = "ohos")))]
 pub fn send_clipboard_msg(msg: Message, _is_file: bool) {
     for s in sessions::get_sessions() {
         #[cfg(feature = "unix-file-copy-paste")]
@@ -1482,8 +1482,8 @@ pub fn send_clipboard_msg(msg: Message, _is_file: bool) {
     }
 }
 
-// Server Side
-#[cfg(not(any(target_os = "ios")))]
+// Server Side（被控端 CM）
+#[cfg(not(any(target_os = "ios", target_env = "ohos")))]
 pub mod connection_manager {
     use std::collections::HashMap;
 
@@ -1581,22 +1581,22 @@ pub mod connection_manager {
     }
 
     #[inline]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     pub fn start_cm_no_ui() {
         start_listen_ipc(false);
     }
 
     #[inline]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     fn start_listen_ipc_thread() {
         start_listen_ipc(true);
     }
 
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     fn start_listen_ipc(new_thread: bool) {
         use crate::ui_cm_interface::{start_ipc, ConnectionManager};
 
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
         std::thread::spawn(crate::ipc::start_pa);
 
         let cm = ConnectionManager {
@@ -1611,7 +1611,7 @@ pub mod connection_manager {
 
     #[inline]
     pub fn cm_init() {
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         start_listen_ipc_thread();
     }
 
@@ -1973,7 +1973,7 @@ pub fn try_sync_peer_option(
     _value: Option<serde_json::Value>,
 ) {
     let mut event = Vec::new();
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     if key == "view-only" {
         event = vec![
             ("k", json!(key.to_string())),
@@ -2117,7 +2117,7 @@ pub mod sessions {
             }
         }
         let s = SESSIONS.write().unwrap().remove(&remove_peer_key?);
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         update_session_count_to_server();
         s
     }
@@ -2180,7 +2180,7 @@ pub mod sessions {
             let mut write_lock = s.ui_handler.session_handlers.write().unwrap();
             if let Some(h) = write_lock.get_mut(&session_id) {
                 h.displays = value.iter().map(|x| *x as usize).collect::<_>();
-                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                 let displays_refresh = value.clone();
                 if value.len() == 1 {
                     // Switch display.
@@ -2213,7 +2213,7 @@ pub mod sessions {
                 // One more key frame (first frame) will be sent because the refresh message.
                 // 2. If this display is currently captured -> Not refresh -> Message "Refresh display" is required.
                 // Without the message, the control side cannot see the latest display image.
-                #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
                 {
                     let is_support_multi_ui_session = crate::common::is_support_multi_ui_session(
                         &s.ui_handler.peer_info.read().unwrap().version,
@@ -2241,12 +2241,12 @@ pub mod sessions {
             .write()
             .unwrap()
             .insert(session_id, Default::default());
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         update_session_count_to_server();
     }
 
     #[inline]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     fn update_session_count_to_server() {
         crate::ipc::update_controlling_session_count(SESSIONS.read().unwrap().len()).ok();
     }
@@ -2261,11 +2261,11 @@ pub mod sessions {
         if let Some(s) = SESSIONS.read().unwrap().get(&(peer_id, conn_type)) {
             let mut h = SessionHandler::default();
             h.displays = displays.iter().map(|x| *x as usize).collect::<_>();
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
             let is_support_multi_ui_session = crate::common::is_support_multi_ui_session(
                 &s.ui_handler.peer_info.read().unwrap().version,
             );
-            #[cfg(any(target_os = "android", target_os = "ios"))]
+            #[cfg(any(target_os = "android", target_os = "ios", target_env = "ohos"))]
             let is_support_multi_ui_session = false;
             h.renderer.is_support_multi_ui_session = is_support_multi_ui_session;
             let _ = s

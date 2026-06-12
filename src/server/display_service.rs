@@ -1,6 +1,6 @@
 use super::*;
 use crate::common::SimpleCallOnReturn;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 use crate::platform::linux::is_x11;
 #[cfg(windows)]
 use crate::virtual_display_manager;
@@ -93,7 +93,7 @@ pub(super) fn check_display_changed(
     idx: usize,
     (x, y, w, h): (i32, i32, usize, usize),
 ) -> Option<DisplayInfo> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     {
         // wayland do not support changing display for now
         if !is_x11() {
@@ -132,7 +132,7 @@ pub fn set_last_changed_resolution(display_name: &str, original: (i32, i32), cha
 }
 
 #[inline]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn restore_resolutions() {
     for (name, res) in CHANGED_RESOLUTIONS.read().unwrap().iter() {
         let (w, h) = res.original;
@@ -198,7 +198,7 @@ fn displays_to_msg(displays: Vec<DisplayInfo>) -> Message {
 }
 
 fn check_get_displays_changed_msg() -> Option<Message> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     {
         if !is_x11() {
             return get_displays_msg();
@@ -209,7 +209,7 @@ fn check_get_displays_changed_msg() -> Option<Message> {
 }
 
 pub fn check_displays_changed() -> ResultType<()> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     {
         // Currently, wayland need to call wayland::clear() before call Display::all(), otherwise it will cause
         // block, or even crash here, https://github.com/rustdesk/rustdesk/blob/0bb4d43e9ea9d9dfb9c46c8d27d1a97cd0ad6bea/libs/scrap/src/wayland/pipewire.rs#L235
@@ -306,7 +306,7 @@ pub(super) fn get_display_info(idx: usize) -> Option<DisplayInfo> {
 pub(super) fn check_update_displays(all: &Vec<Display>) {
     // For compatibility: if only one display, scale remains 1.0 and we use the physical size for `uinput`.
     // If there are multiple displays, we use the logical size for `uinput` by setting scale to d.scale().
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     let use_logical_scale = !is_x11()
         && crate::is_server()
         && scrap::wayland::display::get_displays().displays.len() > 1;
@@ -321,7 +321,7 @@ pub(super) fn check_update_displays(all: &Vec<Display>) {
             {
                 scale = d.scale();
             }
-            #[cfg(target_os = "linux")]
+            #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
             {
                 if use_logical_scale {
                     scale = d.scale();
@@ -350,7 +350,7 @@ pub(super) fn check_update_displays(all: &Vec<Display>) {
 }
 
 pub fn is_inited_msg() -> Option<Message> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     if !is_x11() {
         return super::wayland::is_inited();
     }
@@ -358,7 +358,7 @@ pub fn is_inited_msg() -> Option<Message> {
 }
 
 pub async fn update_get_sync_displays_on_login() -> ResultType<Vec<DisplayInfo>> {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     {
         if !is_x11() {
             return super::wayland::get_displays().await;
@@ -374,7 +374,7 @@ pub async fn update_get_sync_displays_on_login() -> ResultType<Vec<DisplayInfo>>
 
 #[inline]
 pub fn get_primary() -> usize {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     {
         if !is_x11() {
             return match super::wayland::get_primary() {

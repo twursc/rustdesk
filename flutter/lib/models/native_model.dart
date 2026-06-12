@@ -117,7 +117,7 @@ class PlatformFFI {
   /// Init the FFI class, loads the native Rust core library.
   Future<void> init(String appType) async {
     _appType = appType;
-    final dylib = isAndroid
+    final dylib = isAndroid || isOhos
         ? DynamicLibrary.open('librustdesk.so')
         : isLinux
             ? DynamicLibrary.open('librustdesk.so')

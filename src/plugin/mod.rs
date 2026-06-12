@@ -125,7 +125,7 @@ fn get_share_dir() -> ResultType<PathBuf> {
 }
 
 #[inline]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 fn get_share_dir() -> ResultType<PathBuf> {
     Ok(PathBuf::from("/usr/share"))
 }

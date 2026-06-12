@@ -30,7 +30,10 @@ cfg_if! {
     } else if #[cfg(target_os = "android")] {
         mod android;
         pub use self::android::*;
-    }else {
+    } else if #[cfg(ohos)] {
+        mod ohos;
+        pub use self::ohos::*;
+    } else {
         //TODO: Fallback implementation.
     }
 }
@@ -51,6 +54,8 @@ pub const HW_STRIDE_ALIGN: usize = 0; // recommended by av_frame_get_buffer
 pub mod aom;
 #[cfg(not(any(target_os = "ios")))]
 pub mod camera;
+// OHOS v0.1：webm 录像不构建（仅服务端用）
+#[cfg(not(target_env = "ohos"))]
 pub mod record;
 mod vpx;
 

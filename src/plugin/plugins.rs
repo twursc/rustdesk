@@ -262,7 +262,7 @@ pub struct MsgListenEvent {
 
 #[cfg(target_os = "windows")]
 const DYLIB_SUFFIX: &str = ".dll";
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 const DYLIB_SUFFIX: &str = ".so";
 #[cfg(target_os = "macos")]
 const DYLIB_SUFFIX: &str = ".dylib";

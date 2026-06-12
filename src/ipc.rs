@@ -5,7 +5,7 @@ mod ipc_auth;
 mod ipc_fs;
 
 #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 use crate::plugin::ipc::Plugin;
 use crate::{
     common::{is_server, CheckTestNatType},
@@ -15,9 +15,9 @@ use crate::{
     ui_interface::{get_local_option, set_local_option},
 };
 use bytes::Bytes;
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub use clipboard::ClipboardFile;
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 use hbb_common::anyhow;
 use hbb_common::{
     allow_err, bail, bytes,
@@ -46,12 +46,12 @@ use ipc_auth::{
     authorize_windows_main_ipc_connection, portable_service_listener_security_attributes,
     should_allow_everyone_create_on_windows,
 };
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 pub(crate) use ipc_auth::{
     ensure_peer_executable_matches_current_by_fd, is_allowed_service_peer_uid,
     log_rejected_uinput_connection, peer_uid_from_fd,
 };
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 use ipc_fs::terminal_count_candidate_uids;
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 use ipc_fs::{
@@ -234,7 +234,7 @@ pub struct ClipboardNonFile {
     pub special_name: String,
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "t", content = "c")]
 pub enum DataKeyboard {
@@ -251,7 +251,7 @@ pub enum DataKeyboardResponse {
     GetKeyState(bool),
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "t", content = "c")]
 pub enum DataMouse {
@@ -325,7 +325,7 @@ pub enum Data {
     },
     SystemInfo(Option<String>),
     ClickTime(i64),
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     MouseMoveTime(i64),
     Authorize,
     Close,
@@ -350,11 +350,11 @@ pub enum Data {
     PrivacyModeState((i32, PrivacyModeState, String)),
     TestRendezvousServer,
     Deployed,
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     Keyboard(DataKeyboard),
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     KeyboardResponse(DataKeyboardResponse),
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     Mouse(DataMouse),
     Control(DataControl),
     Theme(String),
@@ -363,13 +363,13 @@ pub enum Data {
     Disconnected,
     DataPortableService(DataPortableService),
     #[cfg(feature = "flutter")]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     SwitchSidesRequest(String),
     #[cfg(feature = "flutter")]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     SwitchSidesUuid(String, String, Option<bool>),
     #[cfg(feature = "flutter")]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     SwitchSidesBack,
     UrlLink(String),
     VoiceCallIncoming,
@@ -377,7 +377,7 @@ pub enum Data {
     VoiceCallResponse(bool),
     CloseVoiceCall(String),
     #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     Plugin(Plugin),
     #[cfg(windows)]
     SyncWinCpuUsage(Option<f64>),
@@ -467,12 +467,12 @@ pub enum Data {
         not(any(target_os = "android", target_os = "ios"))
     ))]
     ControllingSessionCount(usize),
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     TerminalSessionCount(usize),
     #[cfg(target_os = "windows")]
     PortForwardSessionCount(Option<usize>),
     SocksWs(Option<Box<(Option<config::Socks5Server>, String)>>),
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
     Whiteboard((String, crate::whiteboard::CustomEvent)),
     ControlPermissionsRemoteModify(Option<bool>),
     #[cfg(target_os = "windows")]
@@ -728,7 +728,7 @@ async fn handle(data: Data, stream: &mut Connection) {
             let t = crate::server::CLICK_TIME.load(Ordering::SeqCst);
             allow_err!(stream.send(&Data::ClickTime(t)).await);
         }
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         Data::MouseMoveTime(_) => {
             let t = crate::server::MOUSE_MOVE_TIME.load(Ordering::SeqCst);
             allow_err!(stream.send(&Data::MouseMoveTime(t)).await);
@@ -746,7 +746,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                     // below part is for main windows can be reopen during rustdesk installation and installing service from UI
                     // this make new ipc server (domain socket) can be created.
                     std::fs::remove_file(&Config::ipc_path("")).ok();
-                    #[cfg(target_os = "linux")]
+                    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
                     {
                         hbb_common::sleep((crate::platform::SERVICE_INTERVAL * 2) as f32 / 1000.0)
                             .await;
@@ -964,7 +964,7 @@ async fn handle(data: Data, stream: &mut Connection) {
             crate::rendezvous_mediator::RendezvousMediator::restart();
         }
         #[cfg(feature = "flutter")]
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         Data::SwitchSidesRequest(id) => {
             let uuid = uuid::Uuid::new_v4();
             crate::server::insert_switch_sides_uuid(id, uuid.clone());
@@ -975,7 +975,7 @@ async fn handle(data: Data, stream: &mut Connection) {
             );
         }
         #[cfg(feature = "flutter")]
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         Data::SwitchSidesUuid(uuid, id, None) => {
             let allowed = uuid
                 .parse::<uuid::Uuid>()
@@ -988,7 +988,7 @@ async fn handle(data: Data, stream: &mut Connection) {
             );
         }
         #[cfg(all(feature = "flutter", feature = "plugin_framework"))]
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         Data::Plugin(plugin) => crate::plugin::ipc::handle_plugin(plugin, stream).await,
         #[cfg(windows)]
         Data::ControlledSessionCount(_) => {
@@ -1007,18 +1007,18 @@ async fn handle(data: Data, stream: &mut Connection) {
         Data::ControllingSessionCount(count) => {
             crate::updater::update_controlling_session_count(count);
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
         Data::TerminalSessionCount(_) => {
             let count = crate::terminal_service::get_terminal_session_count(true);
             allow_err!(stream.send(&Data::TerminalSessionCount(count)).await);
         }
         #[cfg(feature = "hwcodec")]
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         Data::CheckHwcodec => {
             scrap::hwcodec::start_check_process();
         }
         #[cfg(feature = "hwcodec")]
-        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
         Data::HwCodecConfig(c) => {
             match c {
                 None => {
@@ -1041,7 +1041,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                 {
                     Some(opt)
                 }
-                #[cfg(target_os = "linux")]
+                #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
                 {
                     let v = if opt.is_empty() {
                         if scrap::wayland::pipewire::is_rdp_session_hold() {
@@ -1056,7 +1056,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                 }
             } else if value == "clear" {
                 set_local_option(key.clone(), "".to_owned());
-                #[cfg(target_os = "linux")]
+                #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
                 scrap::wayland::pipewire::close_session();
                 Some("".to_owned())
             } else {
@@ -1306,7 +1306,7 @@ fn running_server_uids_for_current_exe() -> ResultType<Vec<u32>> {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn user_main_ipc_server_uid() -> ResultType<u32> {
     let server_uids = running_server_uids_for_current_exe()?;
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", not(target_env = "ohos")))]
     let prefer_root = crate::platform::linux::is_login_screen_wayland();
     #[cfg(target_os = "macos")]
     let prefer_root = false;
@@ -1334,7 +1334,7 @@ pub async fn connect(ms_timeout: u64, postfix: &str) -> ResultType<ConnectionTmp
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 pub async fn connect_for_uid(
     ms_timeout: u64,
     uid: u32,
@@ -1344,7 +1344,7 @@ pub async fn connect_for_uid(
     connect_with_path(ms_timeout, &path).await
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 #[tokio::main(flavor = "current_thread")]
 pub async fn start_pa() {
     use crate::audio_service::AUDIO_DATA_SIZE_U8;
@@ -1627,7 +1627,7 @@ async fn set_permanent_password_with_ack_async(v: String) -> ResultType<bool> {
 }
 
 #[cfg(feature = "flutter")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn set_unlock_pin(v: String, translate: bool) -> ResultType<()> {
     let v = v.trim().to_owned();
     let min_len = 4;
@@ -1654,7 +1654,7 @@ pub fn set_unlock_pin(v: String, translate: bool) -> ResultType<()> {
 }
 
 #[cfg(feature = "flutter")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn get_unlock_pin() -> String {
     if let Ok(Some(v)) = get_config("unlock-pin") {
         Config::set_unlock_pin(&v);
@@ -1665,7 +1665,7 @@ pub fn get_unlock_pin() -> String {
 }
 
 #[cfg(feature = "flutter")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn get_trusted_devices() -> String {
     if let Ok(Some(v)) = get_config("trusted-devices") {
         v
@@ -1675,14 +1675,14 @@ pub fn get_trusted_devices() -> String {
 }
 
 #[cfg(feature = "flutter")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn remove_trusted_devices(hwids: Vec<Bytes>) {
     Config::remove_trusted_devices(&hwids);
     allow_err!(set_data(&Data::RemoveTrustedDevices(hwids)));
 }
 
 #[cfg(feature = "flutter")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn clear_trusted_devices() {
     Config::clear_trusted_devices();
     allow_err!(set_data(&Data::ClearTrustedDevices));
@@ -1911,7 +1911,7 @@ pub async fn get_port_forward_session_count(ms_timeout: u64) -> ResultType<usize
 }
 
 #[cfg(feature = "hwcodec")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 #[tokio::main(flavor = "current_thread")]
 pub async fn get_hwcodec_config_from_server() -> ResultType<()> {
     if !scrap::codec::enable_hwcodec_option() || scrap::hwcodec::HwCodecConfig::already_set() {
@@ -1934,7 +1934,7 @@ pub async fn get_hwcodec_config_from_server() -> ResultType<()> {
 }
 
 #[cfg(feature = "hwcodec")]
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 pub fn client_get_hwcodec_config_thread(wait_sec: u64) {
     static ONCE: std::sync::Once = std::sync::Once::new();
     if !crate::platform::is_installed()
@@ -2012,7 +2012,7 @@ pub async fn update_controlling_session_count(count: usize) -> ResultType<()> {
     Ok(())
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 #[tokio::main(flavor = "current_thread")]
 pub async fn get_terminal_session_count() -> ResultType<usize> {
     let timeout_ms = 1_000;

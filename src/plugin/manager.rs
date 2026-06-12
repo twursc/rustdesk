@@ -22,7 +22,7 @@ const IPC_PLUGIN_POSTFIX: &str = "_plugin";
 
 #[cfg(target_os = "windows")]
 const PLUGIN_PLATFORM: &str = "windows";
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 const PLUGIN_PLATFORM: &str = "linux";
 #[cfg(target_os = "macos")]
 const PLUGIN_PLATFORM: &str = "macos";
@@ -175,7 +175,7 @@ fn elevate_install(
     crate::platform::elevate(&args)
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 fn elevate_install(
     plugin_id: &str,
     plugin_url: &str,
@@ -208,7 +208,7 @@ fn elevate_uninstall(plugin_id: &str) -> ResultType<bool> {
 }
 
 #[inline]
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", not(target_env = "ohos")))]
 fn elevate_uninstall(plugin_id: &str) -> ResultType<bool> {
     crate::platform::elevate(vec!["--plugin-uninstall", plugin_id])
 }
@@ -395,7 +395,7 @@ async fn handle_conn(mut stream: crate::ipc::Connection) {
     }
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 #[tokio::main]
 pub async fn start_ipc() {
     match crate::ipc::new_listener(IPC_PLUGIN_POSTFIX).await {

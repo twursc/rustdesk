@@ -12,5 +12,25 @@ rustflags = [
 #rustflags = [
 #    "-C", "link-args=-Wl,-Bstatic -lc -Wl,-Bdynamic"
 #]
+[target.aarch64-unknown-linux-ohos]
+linker = "aarch64-unknown-linux-ohos-clang"
+
+[target.armv7-unknown-linux-ohos]
+linker = "armv7-unknown-linux-ohos-clang"
+
+[target.x86_64-unknown-linux-ohos]
+linker = "x86_64-unknown-linux-ohos-clang"
+
+[env]
+CC_aarch64-unknown-linux-ohos = "aarch64-unknown-linux-ohos-clang"
+CXX_aarch64-unknown-linux-ohos = "aarch64-unknown-linux-ohos-clang++"
+AR_aarch64-unknown-linux-ohos = "llvm-ar"
+CC_armv7-unknown-linux-ohos = "armv7-unknown-linux-ohos-clang"
+CXX_armv7-unknown-linux-ohos = "armv7-unknown-linux-ohos-clang++"
+AR_armv7-unknown-linux-ohos = "llvm-ar"
+CC_x86_64-unknown-linux-ohos = "x86_64-unknown-linux-ohos-clang"
+CXX_x86_64-unknown-linux-ohos = "x86_64-unknown-linux-ohos-clang++"
+AR_x86_64-unknown-linux-ohos = "llvm-ar"
+
 [net]
 git-fetch-with-cli = true
