@@ -19,6 +19,9 @@ mod server;
 #[cfg(not(any(target_os = "ios", target_env = "ohos")))]
 pub use self::server::*;
 mod client;
+// OHOS 远端音频播放：rust → libohaudio.so OH_AudioRenderer thin FFI 桥。
+#[cfg(target_env = "ohos")]
+mod audio_ohos;
 mod lan;
 // OHOS v0.1: 不接入 rendezvous（peer discovery），直接连远端地址
 #[cfg(not(any(target_os = "ios", target_env = "ohos")))]

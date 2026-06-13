@@ -36,6 +36,17 @@
     ],
     "requestPermissions": [
       {"name" :  "ohos.permission.INTERNET"},
+      {
+        // 用于拿系统"设备名称"（用户在设置→关于本机里改的那个，跨蓝牙/热点统一）
+        // 对端连进来在 peer 列表显示这个名字。settings.general.DEVICE_NAME 在新版
+        // OHOS 上返回空，distributedDeviceManager.getLocalDeviceName() 是唯一稳路径。
+        "name" : "ohos.permission.DISTRIBUTED_DATASYNC",
+        "reason": "$string:perm_distributed_datasync_reason",
+        "usedScene": {
+          "abilities": ["EntryAbility"],
+          "when": "inuse"
+        }
+      },
     ]
   }
 }

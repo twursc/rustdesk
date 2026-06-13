@@ -30,7 +30,10 @@ class SettingsPage extends StatefulWidget implements PageShape {
   final icon = Icon(Icons.settings);
 
   @override
-  final appBarActions = bind.isDisableSettings() ? [] : [ScanButton()];
+  // OHOS: 屏蔽设置页右上角扫码入口（qr_code_scanner plugin 在 OHOS 无实现，
+  // 且控制端 v0.1 用 ID/手输路径，不需要扫码）。
+  final appBarActions =
+      (bind.isDisableSettings() || isOhos) ? [] : [ScanButton()];
 
   @override
   State<SettingsPage> createState() => _SettingsState();
@@ -682,7 +685,8 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
     final settings = SettingsList(
       sections: [
         customClientSection,
-        if (!bind.isDisableAccount())
+        // OHOS: 屏蔽账户相关 UI（控制端 v0.1 不接入 RustDesk 服务账户体系）。
+        if (!bind.isDisableAccount() && !isOhos)
           SettingsSection(
             title: Text(translate('Account')),
             tiles: [
@@ -827,7 +831,8 @@ class _SettingsState extends State<SettingsPage> with WidgetsBindingObserver {
               showThemeSettings(gFFI.dialogManager);
             },
           ),
-          if (!bind.isDisableAccount())
+          // OHOS: 屏蔽账户相关 UI（控制端 v0.1 不接入 RustDesk 服务账户体系）。
+        if (!bind.isDisableAccount() && !isOhos)
             SettingsTile.switchTile(
               title: Text(translate('note-at-conn-end-tip')),
               initialValue: _allowAskForNoteAtEndOfConnection,

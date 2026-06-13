@@ -37,12 +37,17 @@ class PeerTabModel with ChangeNotifier {
     IconFont.addressBook,
     IconFont.deviceGroupFill,
   ];
+  // OHOS: 控制端 v0.1 只保留 Recent / Favorites 两个 tab。Discovered 依赖 LAN
+  // 局域网发现服务（控制端没有 service 进程），Address book / Accessible devices
+  // 依赖 RustDesk 服务账户体系（v0.1 不接）。
   List<bool> isEnabled = List.from([
     true,
     true,
-    !isWeb && bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
-    !(bind.isDisableAb() || bind.isDisableAccount()),
-    !(bind.isDisableGroupPanel() || bind.isDisableAccount()),
+    !isOhos &&
+        !isWeb &&
+        bind.mainGetLocalOption(key: "disable-discovery-panel") != "Y",
+    !isOhos && !(bind.isDisableAb() || bind.isDisableAccount()),
+    !isOhos && !(bind.isDisableGroupPanel() || bind.isDisableAccount()),
   ]);
   final List<bool> _isVisible = List.filled(maxTabCount, true, growable: false);
   List<bool> get isVisibleEnabled => () {

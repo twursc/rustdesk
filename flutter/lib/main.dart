@@ -38,14 +38,46 @@ int? kWindowId;
 WindowType? kWindowType;
 late List<String> kBootArgs;
 
+// OHOS 启动期 dart→ArkTS 探针。两路：(1) print() → flutter engine →
+// hilog tag XComFlutterOHOS_Native; (2) MethodChannel(mChannel) → ArkTS
+// 自定义 case rustdesk_debug_log → hilog tag rustdesk。先输出 print，再尝试
+// MethodChannel（binding 没起来时它会抛，吞掉但 print 已经走了）。
+const MethodChannel _ohProbeChannel = MethodChannel('mChannel');
+void _ohp(String msg) {
+  // ignore: avoid_print
+  print('RUSTDESK_PROBE $msg');
+  try {
+    _ohProbeChannel.invokeMethod('rustdesk_debug_log', {'msg': msg});
+  } catch (_) {}
+}
+
 Future<void> main(List<String> args) async {
-  earlyAssert();
-  WidgetsFlutterBinding.ensureInitialized();
+  _ohp('main: enter (pre-earlyAssert)');
+  _ohp('main: Platform.operatingSystem=${Platform.operatingSystem}');
+  _ohp('main: isAndroid=${Platform.isAndroid} isLinux=${Platform.isLinux}');
+  try {
+    earlyAssert();
+  } catch (e, s) {
+    _ohp('main: earlyAssert THREW $e | $s');
+    rethrow;
+  }
+  _ohp('main: earlyAssert OK');
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+  } catch (e, s) {
+    _ohp('main: ensureInitialized THREW $e | $s');
+    rethrow;
+  }
+  _ohp('main: binding init OK');
+  // 让事件循环转一圈，确保 binding 的 microtask flush
+  await Future<void>.delayed(Duration.zero);
+  _ohp('main: after first microtask');
 
   debugPrint("launch args: $args");
   kBootArgs = List.from(args);
 
   if (!isDesktop) {
+    _ohp('main: -> runMobileApp');
     runMobileApp();
     return;
   }
@@ -121,16 +153,20 @@ Future<void> main(List<String> args) async {
 }
 
 Future<void> initEnv(String appType) async {
+  _ohp('initEnv: enter appType=$appType');
   // global shared preference
   await platformFFI.init(appType);
+  _ohp('initEnv: platformFFI.init done');
   // global FFI, use this **ONLY** for global configuration
   // for convenience, use global FFI on mobile platform
   // focus on multi-ffi on desktop first
   await initGlobalFFI();
+  _ohp('initEnv: initGlobalFFI done');
   // await Firebase.initializeApp();
   _registerEventHandler();
   // Update the system theme.
   updateSystemWindowTheme();
+  _ohp('initEnv: exit');
 }
 
 void runMainApp(bool startService) async {
@@ -179,15 +215,21 @@ void runMainApp(bool startService) async {
 }
 
 void runMobileApp() async {
+  _ohp('runMobileApp: enter');
   await initEnv(kAppTypeMain);
+  _ohp('runMobileApp: initEnv done');
   checkUpdate();
   if (isAndroid || isOhos) androidChannelInit();
+  _ohp('runMobileApp: androidChannelInit done');
   if (isAndroid || isOhos) platformFFI.syncAndroidServiceAppDirConfigPath();
   draggablePositions.load();
   await Future.wait([gFFI.abModel.loadCache(), gFFI.groupModel.loadCache()]);
+  _ohp('runMobileApp: caches loaded');
   gFFI.userModel.refreshCurrentUser();
+  _ohp('runMobileApp: -> runApp');
   runApp(App());
   await initUniLinks();
+  _ohp('runMobileApp: exit');
 }
 
 void runMultiWindow(

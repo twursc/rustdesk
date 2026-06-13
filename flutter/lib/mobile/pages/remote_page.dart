@@ -102,6 +102,14 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
+      // 远程桌面通常 16:9 横屏更舒服；解锁全部 4 个方向，dispose 时再恢复成
+      // portraitUp 默认。OHOS / Android / iOS 共用这条。
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
       gFFI.dialogManager
           .showLoading(translate('Connecting...'), onCancel: closeConnection);
     });
@@ -169,6 +177,10 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
     gFFI.dialogManager.dismissAll();
     await SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
         overlays: SystemUiOverlay.values);
+    // 退出 RemotePage 恢复成竖屏（连接页 + 设置页都假设竖屏布局）。
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
     WakelockManager.disable(_uniqueKey);
     await keyboardSubscription.cancel();
     removeSharedStates(widget.id);
@@ -188,11 +200,26 @@ class _RemotePageState extends State<RemotePage> with WidgetsBindingObserver {
   // For client side
   // When swithing from other app to this app, try to sync clipboard.
   void trySyncClipboard() {
+    if (isOhos) {
+      // OHOS: ArkTS 读 pasteboard 同步返回字符串，dart 拿到后走
+      // bind.session_input_string 推到对端（v0.1 用模拟键盘输入路径，
+      // 没接 rust 端 clipboard.rs 的 MultiClipboards 编码）。
+      () async {
+        try {
+          final text = (await gFFI.invokeMethod('try_sync_clipboard')) as String?;
+          if (text == null || text.isEmpty) return;
+          bind.sessionInputString(sessionId: sessionId, value: text);
+        } catch (e) {
+          debugPrint('trySyncClipboard ohos failed: $e');
+        }
+      }();
+      return;
+    }
     gFFI.invokeMethod("try_sync_clipboard");
   }
 
   bool _shouldGateKeyboardForWayland() {
-    if (!(isAndroid || isIOS)) return false;
+    if (!(isAndroid || isIOS || isOhos)) return false;
     final pi = gFFI.ffiModel.pi;
     return pi.platform == kPeerPlatformLinux && pi.isWayland;
   }

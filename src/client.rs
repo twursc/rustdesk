@@ -1209,6 +1209,10 @@ pub struct AudioHandler {
     device_channel: u16,
     #[cfg(not(target_os = "linux"))]
     ready: Arc<std::sync::Mutex<bool>>,
+    // OHOS：libohaudio.so OH_AudioRenderer 句柄 + 内部 ringbuf。OS audio
+    // 线程通过 OH_AudioRenderer_OnWriteDataCallback 拉 PCM。
+    #[cfg(target_env = "ohos")]
+    ohos_renderer: Option<crate::audio_ohos::OhosAudioRenderer>,
 }
 
 #[cfg(not(target_os = "linux"))]
@@ -1363,10 +1367,14 @@ impl AudioHandler {
         Ok(())
     }
 
-    /// Start the audio playback.
+    /// Start the audio playback. OHOS：libohaudio.so OH_AudioRenderer。
     #[cfg(target_env = "ohos")]
-    fn start_audio(&mut self, _format0: AudioFormat) -> ResultType<()> {
-        // OHOS v0.1：先不播放远端音频。v0.2 走 OHAudio (libohaudio.so) 实现。
+    fn start_audio(&mut self, format0: AudioFormat) -> ResultType<()> {
+        use crate::audio_ohos::OhosAudioRenderer;
+        let mut r = OhosAudioRenderer::new(format0.sample_rate, format0.channels as u16)?;
+        r.start()?;
+        self.sample_rate = (format0.sample_rate, r.sample_rate());
+        self.ohos_renderer = Some(r);
         Ok(())
     }
 
@@ -1448,11 +1456,26 @@ impl AudioHandler {
             log::debug!("PulseAudio simple binding does not exists");
             return;
         }
+        #[cfg(target_env = "ohos")]
+        if self.ohos_renderer.is_none() {
+            return;
+        }
         self.audio_decoder.as_mut().map(|(d, buffer)| {
             if let Ok(n) = d.decode_float(&frame.data, buffer, false) {
                 let channels = self.channels;
                 let n = n * (channels as usize);
-                #[cfg(not(target_os = "linux"))]
+                // OHOS：直接把 opus 解码后的 f32 PCM 推到 OhosAudioRenderer
+                // 内部 ringbuf；OS audio 线程会在 callback 里 pop。这里不需要
+                // resample/rechannel —— start_audio 把 OhosAudioRenderer 配
+                // 成跟远端一致的 sample_rate/channels（NDK 端 OH_AudioRenderer
+                // 内部会自动 mix 到设备 channel）。
+                #[cfg(target_env = "ohos")]
+                {
+                    if let Some(r) = self.ohos_renderer.as_ref() {
+                        r.append_pcm(&buffer[0..n]);
+                    }
+                }
+                #[cfg(all(not(target_os = "linux"), not(target_env = "ohos")))]
                 {
                     let sample_rate0 = self.sample_rate.0;
                     let sample_rate = self.sample_rate.1;
@@ -1589,12 +1612,18 @@ impl VideoHandler {
     pub fn new(format: CodecFormat, _display: usize) -> Self {
         let luid = Self::get_adapter_luid();
         log::info!("new video handler for display #{_display}, format: {format:?}, luid: {luid:?}");
-        let rgba_format =
-            if cfg!(feature = "flutter") && (cfg!(windows) || cfg!(target_os = "linux")) {
-                ImageFormat::ABGR
-            } else {
-                ImageFormat::ARGB
-            };
+        // OHOS rust triplet 是 aarch64-unknown-linux-ohos (target_os = "linux"),
+        // 但 dart 端 model.dart 把 OHOS 当移动平台走 PixelFormat.bgra8888，所以
+        // 必须排除 ohos 让它走 ARGB（libyuv 实际字节序 BGRA）。否则 R/B 互换
+        // 屏幕会蒙一层橙红色。
+        let rgba_format = if cfg!(feature = "flutter")
+            && (cfg!(windows)
+                || (cfg!(target_os = "linux") && !cfg!(target_env = "ohos")))
+        {
+            ImageFormat::ABGR
+        } else {
+            ImageFormat::ARGB
+        };
         VideoHandler {
             decoder: Decoder::new(format, luid),
             rgb: ImageRgb::new(rgba_format, crate::get_dst_align_rgba()),

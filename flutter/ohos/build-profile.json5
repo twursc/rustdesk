@@ -1,9 +1,15 @@
 
 {
   "app": {
+    // signingConfigs 留空：hvigor 期望密码经 DevEco Studio 加密成 32 字节
+    // hex，明文塞不进去。我们用 scripts/sign-app.sh + scripts/sign-hap.sh 走
+    // hap-sign-tool 链路自己签，绕过 hvigor 签名步骤。
     "signingConfigs": [],
     "products": [
       {
+        // 保持 OpenHarmony SDK (API 21 number)，本地编+签都 OK。
+        // 上架华为应用市场要 HarmonyOS SDK（"6.0.0(20)" string + DevEco Studio
+        // HarmonyOS 工具链），那是另一套完整流程，本仓库工具链没装。
         "name": "default",
         "signingConfig": "default",
         "compatibleSdkVersion": 21,

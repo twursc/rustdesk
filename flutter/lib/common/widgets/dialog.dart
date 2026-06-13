@@ -666,7 +666,7 @@ class _DialogVerificationCodeField extends State<DialogVerificationCodeField> {
 
     // software secure keyboard will take the focus since flutter 3.13
     // request focus again when android account password obtain focus
-    if (isAndroid && widget.reRequestFocus) {
+    if ((isAndroid || isOhos) && widget.reRequestFocus) {
       _focusNode.addListener(() {
         if (_focusNode.hasFocus) {
           _timerReRequestFocus?.cancel();
@@ -739,7 +739,7 @@ class _PasswordWidgetState extends State<PasswordWidget> {
     }
     // software secure keyboard will take the focus since flutter 3.13
     // request focus again when android account password obtain focus
-    if (isAndroid && widget.reRequestFocus) {
+    if ((isAndroid || isOhos) && widget.reRequestFocus) {
       _focusNode.addListener(() {
         if (_focusNode.hasFocus) {
           _timerReRequestFocus?.cancel();

@@ -25,6 +25,17 @@ typedef F3 = Pointer<Uint8> Function(Pointer<Utf8>, int);
 typedef F3Dart = Pointer<Uint8> Function(Pointer<Utf8>, Int32);
 typedef HandleEvent = Future<void> Function(Map<String, dynamic> evt);
 
+// OHOS 启动期 FFI 探针。两路：print → flutter engine → hilog
+// XComFlutterOHOS_Native, MethodChannel → ArkTS hilog rustdesk。
+const MethodChannel _ohpFfiChannel = MethodChannel('mChannel');
+void _ohpFfi(String msg) {
+  // ignore: avoid_print
+  print('RUSTDESK_PROBE $msg');
+  try {
+    _ohpFfiChannel.invokeMethod('rustdesk_debug_log', {'msg': msg});
+  } catch (_) {}
+}
+
 /// FFI wrapper around the native Rust core.
 /// Hides the platform differences.
 class PlatformFFI {
@@ -117,6 +128,7 @@ class PlatformFFI {
   /// Init the FFI class, loads the native Rust core library.
   Future<void> init(String appType) async {
     _appType = appType;
+    _ohpFfi('PlatformFFI.init: enter appType=$appType');
     final dylib = isAndroid || isOhos
         ? DynamicLibrary.open('librustdesk.so')
         : isLinux
@@ -130,16 +142,28 @@ class PlatformFFI {
                 //
                 // isMacOS? DynamicLibrary.open("liblibrustdesk.dylib") :
                 DynamicLibrary.process();
+    _ohpFfi('PlatformFFI.init: dlopen OK');
     debugPrint('initializing FFI $_appType');
     try {
       _session_get_rgba = dylib.lookupFunction<F3Dart, F3>("session_get_rgba");
+      _ohpFfi('PlatformFFI.init: lookup session_get_rgba OK');
       try {
         // SYSTEM user failed
-        _dir = (await getApplicationDocumentsDirectory()).path;
+        if (isOhos) {
+          // OHOS: path_provider plugin 未实现，从 ArkTS mChannel('app_dir') 拿
+          // EntryAbility 沙箱 filesDir，否则 rust 端拿到 appDir='' 导致配置写不
+          // 到沙箱里，重启全丢。
+          _dir = await _toAndroidChannel
+                  .invokeMethod<String>('get_value', {'name': 'app_dir'}) ??
+              '';
+        } else {
+          _dir = (await getApplicationDocumentsDirectory()).path;
+        }
       } catch (e) {
         debugPrint('Failed to get documents directory: $e');
       }
       _ffiBind = RustdeskImpl(dylib);
+      _ohpFfi('PlatformFFI.init: RustdeskImpl(dylib) OK');
 
       if (isLinux) {
         if (isMain) {
@@ -169,7 +193,21 @@ class PlatformFFI {
       String id = 'NA';
       String name = 'Flutter';
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-      if (isAndroid) {
+      if (isOhos) {
+        // device_info_plus 在 OHOS 上无 plugin → 自己走 mChannel。ArkTS 端
+        // 优先取系统"设备名称"（用户在 OHOS 设置 → 关于本机里改的那个），
+        // 没设回退到 marketName / brand-productModel。
+        try {
+          final info = await _toAndroidChannel
+              .invokeMapMethod<String, String>('get_device_info');
+          if (info != null) {
+            name = info['name'] ?? name;
+            id = info['id'] ?? id;
+          }
+        } catch (e) {
+          debugPrint('ohos get_device_info failed: $e');
+        }
+      } else if (isAndroid) {
         AndroidDeviceInfo androidInfo = await deviceInfo.androidInfo;
         name = '${androidInfo.brand}-${androidInfo.model}';
         id = androidInfo.id.hashCode.toString();
@@ -209,17 +247,32 @@ class PlatformFFI {
       if (desktopType == DesktopType.cm) {
         await _ffiBind.cmInit();
       }
+      _ohpFfi('PlatformFFI.init: -> mainDeviceId');
       await _ffiBind.mainDeviceId(id: id);
+      _ohpFfi('PlatformFFI.init: -> mainDeviceName');
       await _ffiBind.mainDeviceName(name: name);
+      _ohpFfi('PlatformFFI.init: -> mainSetHomeDir');
       await _ffiBind.mainSetHomeDir(home: _homeDir);
+      _ohpFfi('PlatformFFI.init: -> mainInit appDir=$_dir');
       await _ffiBind.mainInit(
         appDir: _dir,
         customClientConfig: '',
       );
+      _ohpFfi('PlatformFFI.init: mainInit OK');
     } catch (e) {
+      _ohpFfi('PlatformFFI.init: EXCEPTION $e');
       debugPrintStack(label: 'initialize failed: $e');
     }
-    version = await getVersion();
+    _ohpFfi('PlatformFFI.init: -> getVersion');
+    // OHOS: package_info_plus plugin 未实现，await 会永远 hang。给 1s 超时兜底。
+    try {
+      version = await getVersion()
+          .timeout(const Duration(seconds: 1), onTimeout: () => 'unknown');
+    } catch (e) {
+      _ohpFfi('PlatformFFI.init: getVersion FAIL $e');
+      version = 'unknown';
+    }
+    _ohpFfi('PlatformFFI.init: exit version=$version');
   }
 
   Future<bool> tryHandle(Map<String, dynamic> evt) async {

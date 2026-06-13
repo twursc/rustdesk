@@ -353,7 +353,14 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'cursor_position') {
         await parent.target?.cursorModel.updateCursorPosition(evt, peerId);
       } else if (name == 'clipboard') {
-        Clipboard.setData(ClipboardData(text: evt['content']));
+        if (isOhos) {
+          // OHOS Flutter embedder 没接 flutter/platform 上的 Clipboard.setData，
+          // 走自己的 mChannel('set_clipboard_text') → ArkTS pasteboard。
+          platformFFI.invokeMethod('set_clipboard_text',
+              {'text': (evt['content'] as String?) ?? ''});
+        } else {
+          Clipboard.setData(ClipboardData(text: evt['content']));
+        }
       } else if (name == 'permission') {
         updatePermission(evt, peerId);
       } else if (name == 'chat_client_mode') {
